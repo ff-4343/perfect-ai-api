@@ -9,6 +9,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy"
   },
+  "engines": { "node": ">=18" },
   "dependencies": {
     "@fastify/cors": "9.0.1",
     "@prisma/client": "5.18.0",
