@@ -1,6 +1,7 @@
 {
   "name": "perfect-ai-api",
   "private": true,
+  "type": "module",
   "scripts": {
     "build": "tsc",
     "start": "node dist/server.js",
@@ -11,11 +12,9 @@
     "@prisma/client": "5.18.0",
     "dotenv": "16.4.5",
     "express": "4.19.2",
-    "cors": "2.8.5"
-    "swagger-ui-express": "^5.0.0",
-    "express-rate-limit": "^7.0.0"
-    "express-rate-limit": "^7.2.0",
-    "swagger-ui-express": "^5.0.1"
+    "cors": "2.8.5",
+    "express-rate-limit": "7.2.0",
+    "swagger-ui-express": "5.0.1"
   },
   "devDependencies": {
     "prisma": "5.18.0",
