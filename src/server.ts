@@ -3,49 +3,53 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import 'dotenv/config';
 
-import orgsRouter from './routes/orgs';
-import projectsRouter from './routes/projects';
 import swaggerUi from 'swagger-ui-express';
 import { openApiSpec } from './docs';
+import orgsRouter from './routes/orgs';
+import projectsRouter from './routes/projects';
 
 const app = express();
 
-// CORS: لو حددت CORS_ORIGIN في env (قائمة مفصولة بفواصل) هنقيّد الوصول، وإلا نسمح للجميع
-const allowed = process.env.CORS_ORIGIN?.split(',').map(s => s.trim()).filter(Boolean);
-app.use(cors({ origin: allowed && allowed.length ? allowed : true }));
+/* Render/Proxies: يلزم لتعمل الـ rate-limit و IPs بشكل صحيح */
+app.set('trust proxy', 1);
 
-// Rate limit: 120 طلب/دقيقة لكل IP
-app.use(rateLimit({ windowMs: 60_000, max: 120 }));
+/* CORS: إن وُجد CORS_ORIGIN كقائمة مفصولة بفواصل نقيّد الأصل، غير ذلك نسمح للجميع */
+const allowed = process.env.CORS_ORIGIN
+  ?.split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+app.use(
+  cors({
+    origin: allowed && allowed.length ? allowed : true,
+  })
+);
 
+/* Rate limit: 120 طلب/دقيقة لكل IP */
+app.use(
+  rateLimit({
+    windowMs: 60_000,
+    max: 120,
+    standardHeaders: true,
+    legacyHeaders: false,
+  })
+);
+
+/* JSON body */
 app.use(express.json({ limit: '1mb' }));
 
-app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+/* Health check: نص عادي لموافقة أي فاحص صحي */
+app.get('/health', (_req, res) => res.type('text/plain').send('ok'));
 
-// Swagger UI
+/* Swagger UI */
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(openApiSpec));
 
-// Routers
+/* Routers (API) */
 app.use('/api/orgs', orgsRouter);
 app.use('/api/projects', projectsRouter);
 
-// 404
-app.use((_req, res) => res.status(404).json({ error: 'Not found' }));
-
-// Error handler
-app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-  console.error(err);
-  res.status(500).json({ error: 'Internal Server Error' });
-});
-
-const port = Number(process.env.PORT ?? 10000);
-const host = '0.0.0.0';
-app.listen(port, host, () => {
-  console.log(`✅ Server listening on http://${host}:${port}`);
-});
-// -- Admin simple UI (no external frontend) --
-app.get('/admin', async (req, reply) => {
-  const html = `
-<!doctype html>
+/* -------- Admin page (قبل 404 وقبل listen) -------- */
+app.get('/admin', (_req: Request, res: Response) => {
+  const html = `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
@@ -114,13 +118,13 @@ app.get('/admin', async (req, reply) => {
       const txt = await res.text();
       throw new Error(txt || ('HTTP '+res.status));
     }
-    return res.json ? res.json() : res.text();
+    try { return await res.json(); } catch { return await res.text(); }
   }
 
   async function checkHealth(){
     try{
       const txt = await fetch('/health').then(r=>r.text());
-      $('health').textContent = txt === 'ok' || txt === '{"status":"ok"}' ? 'ok' : txt;
+      $('health').textContent = (txt === 'ok' || txt === '{"status":"ok"}') ? 'ok' : txt;
       $('health').className = 'ok';
     }catch(e){
       $('health').textContent = e.message;
@@ -210,8 +214,23 @@ app.get('/admin', async (req, reply) => {
   loadOrgs();
 </script>
 </body>
-</html>
-  `;
-  return reply.type('text/html').send(html);
+</html>`;
+  return res.type('text/html').send(html);
+});
+/* ----------------------------------------------- */
+
+/* 404 */
+app.use((_req, res) => res.status(404).json({ error: 'Not found' }));
+
+/* Error handler */
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  console.error(err);
+  res.status(500).json({ error: 'Internal Server Error' });
 });
 
+/* Start server */
+const port = Number(process.env.PORT ?? 10000);
+const host = '0.0.0.0';
+app.listen(port, host, () => {
+  console.log(`✅ Server listening on http://${host}:${port}`);
+});
