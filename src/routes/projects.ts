@@ -1,84 +1,81 @@
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router } from 'express';
 import { prisma } from '../lib/prisma';
 
 const router = Router();
 
-// Create
-router.post('/', async (req: Request, res: Response, next: NextFunction) => {
+// إنشاء مشروع (يتطلب orgId)
+router.post('/', async (req, res, next) => {
   try {
-    const { name, description } = req.body ?? {};
-    if (!name || typeof name !== 'string' || name.trim().length === 0) {
-      return res.status(400).json({ error: 'name is required (non-empty string)' });
-    }
+    const { orgId, name, archetype, status, spec } = req.body ?? {};
+    if (!orgId || !name) return res.status(400).json({ error: 'orgId and name are required' });
     const project = await prisma.project.create({
       data: {
-        name: name.trim(),
-        description: typeof description === 'string' ? description : null,
+        orgId: String(orgId),
+        name: String(name).trim(),
+        archetype: String(archetype ?? ''),
+        status: String(status ?? 'planning'),
+        spec: spec ?? {},
       },
     });
     res.status(201).json(project);
-  } catch (err) {
-    next(err);
+  } catch (e: any) {
+    if (e?.code === 'P2003') return res.status(404).json({ error: 'Organization not found' });
+    next(e);
   }
 });
 
-// List
-router.get('/', async (req: Request, res: Response, next: NextFunction) => {
+// قائمة المشاريع (فلتر اختياري orgId + pagination)
+router.get('/', async (req, res, next) => {
   try {
+    const orgId = req.query.orgId ? String(req.query.orgId) : undefined;
     const take = Math.min(parseInt(String(req.query.limit ?? '50'), 10) || 50, 100);
     const skip = parseInt(String(req.query.offset ?? '0'), 10) || 0;
-    const items = await prisma.project.findMany({
-      orderBy: { createdAt: 'desc' },
-      take,
-      skip,
-    });
-    const total = await prisma.project.count();
+    const where = orgId ? { orgId } : {};
+    const [items, total] = await Promise.all([
+      prisma.project.findMany({ where, orderBy: { createdAt: 'desc' }, take, skip }),
+      prisma.project.count({ where }),
+    ]);
     res.json({ items, total });
-  } catch (err) {
-    next(err);
-  }
+  } catch (e) { next(e); }
 });
 
-// Get by ID
-router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
+// مشروع واحد
+router.get('/:id', async (req, res, next) => {
   try {
-    const project = await prisma.project.findUnique({ where: { id: req.params.id } });
-    if (!project) return res.status(404).json({ error: 'Not found' });
-    res.json(project);
-  } catch (err) {
-    next(err);
-  }
+    const item = await prisma.project.findUnique({ where: { id: req.params.id } });
+    if (!item) return res.status(404).json({ error: 'Not found' });
+    res.json(item);
+  } catch (e) { next(e); }
 });
 
-// Update
-router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
+// تحديث
+router.put('/:id', async (req, res, next) => {
   try {
-    const { name, description } = req.body ?? {};
-    if (name !== undefined && (typeof name !== 'string' || name.trim().length === 0)) {
-      return res.status(400).json({ error: 'name must be a non-empty string' });
-    }
+    const { name, archetype, status, spec } = req.body ?? {};
     const updated = await prisma.project.update({
       where: { id: req.params.id },
       data: {
         ...(name !== undefined ? { name: String(name).trim() } : {}),
-        ...(description !== undefined ? { description: description as string | null } : {}),
+        ...(archetype !== undefined ? { archetype: String(archetype) } : {}),
+        ...(status !== undefined ? { status: String(status) } : {}),
+        ...(spec !== undefined ? { spec } : {}),
       },
     });
     res.json(updated);
-  } catch (err: any) {
-    if (err?.code === 'P2025') return res.status(404).json({ error: 'Not found' });
-    next(err);
+  } catch (e: any) {
+    if (e?.code === 'P2025') return res.status(404).json({ error: 'Not found' });
+    next(e);
   }
 });
 
-// Delete
-router.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
+// حذف
+router.delete('/:id', async (req, res, next) => {
   try {
     await prisma.project.delete({ where: { id: req.params.id } });
     res.status(204).end();
-  } catch (err: any) {
-    if (err?.code === 'P2025') return res.status(404).json({ error: 'Not found' });
-    next(err);
+  } catch (e: any) {
+    if (e?.code === 'P2025') return res.status(404).json({ error: 'Not found' });
+    next(e);
   }
 });
 
