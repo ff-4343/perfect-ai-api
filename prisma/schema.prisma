@@ -8,30 +8,20 @@ datasource db {
 }
 
 model Organization {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   name      String
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
   projects  Project[]
 }
 
 model Project {
-  id         String       @id @default(cuid())
-  orgId      String
-  name       String
-  archetype  String
-  status     String       @default("planning")
-  spec       Json
-  createdAt  DateTime     @default(now())
+  id        String    @id @default(cuid())
+  orgId     String
+  name      String
+  archetype String
+  status    String    @default("planning")
+  spec      Json
+  createdAt DateTime  @default(now())
 
-  org        Organization @relation(fields: [orgId], references: [id])
-
-  @@index([orgId])
-}
-
-model AuditLog {
-  id        String   @id @default(cuid())
-  action    String
-  actorId   String?
-  meta      Json?
-  createdAt DateTime @default(now())
+  org Organization @relation(fields: [orgId], references: [id])
 }
