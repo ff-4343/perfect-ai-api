@@ -2,10 +2,10 @@ services:
   - type: web
     name: perfect-api
     env: node
-    plan: starter
+    plan: free            # بدّلناها من starter → free
     rootDir: .
     buildCommand: |
-      npm ci
+      npm install         # بدّلناها من npm ci → npm install
       npm run prisma:generate
       npm run build
     startCommand: |
@@ -18,7 +18,8 @@ services:
         fromDatabase:
           name: perfect-postgres
           property: connectionString
+
 databases:
   - name: perfect-postgres
     databaseName: perfect_ai
-    plan: starter
+    plan: free            # بدّلناها من starter → free
