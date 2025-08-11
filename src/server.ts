@@ -3,11 +3,11 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import 'dotenv/config';
 
-import orgsRouter from './routes/orgs';
-import projectsRouter from './routes/projects';
+import orgsRouter from './routes/orgs.js';
+import projectsRouter from './routes/projects.js';
 
 import swaggerUi from 'swagger-ui-express';
-import { openApiSpec } from './docs';
+import { openApiSpec } from './docs.js';
 
 const app = express();
 
