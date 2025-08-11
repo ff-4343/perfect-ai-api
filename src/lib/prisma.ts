@@ -1,8 +1,10 @@
+// src/lib/prisma.ts
 import { PrismaClient } from '@prisma/client';
 
-export const prisma = new PrismaClient();
+const prisma = new PrismaClient();
+export default prisma;
 
 process.on('SIGINT', async () => {
   try { await prisma.$disconnect(); } finally { process.exit(0); }
 });
-process.on('SIGTERM', async () => { await prisma.$disconnect(); });
+process.on('SIGTERM', async () => { prisma.$disconnect(); });
