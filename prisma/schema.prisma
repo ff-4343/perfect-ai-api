@@ -1,337 +1,4 @@
-// prisma/schema.prisma
-generator client {
-  provider = "prisma-client-js"
-}
-
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
-// ===== Core multi-tenant (Org/Project)
-model Organization {
-  id        String     @id @default(cuid())
-  name      String
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-
-  projects  Project[]
-  services  Service[]
-  leads     Lead[]
-  apiKeys   ApiKey[]
-  assets    Asset[]
-  forms     Form[]
-  chat      ChatSession[]
-  resources Resource[]
-  events    Event[]
-
-  memberships OrgMembership[]
-  vendors     Vendor[]
-  categories  Category[]
-  products    Product[]
-  carts       Cart[]
-  orders      Order[]
-  addresses   Address[]
-  webhooks    WebhookEvent[]
-
-  @@index([name])
-}
-
-model Project {
-  id          String   @id @default(cuid())
-  orgId       String
-  name        String
-  archetype   String?
-  status      String   @default("planning")
-  spec        Json?
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  assets     Asset[]
-  themes     Theme[]
-  chat       ChatSession[]
-  resources  Resource[]
-  events     Event[]
-
-  @@index([orgId])
-  @@index([status])
-}
-
-// ===== Users / Auth / Membership
-model User {
-  id        String         @id @default(cuid())
-  email     String         @unique
-  name      String?
-  avatarUrl String?
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
-
-  sessions     Session[]
-  memberships  OrgMembership[]
-  addresses    Address[]
-  carts        Cart[]
-  orders       Order[]
-}
-
-model Session {
-  id        String   @id @default(cuid())
-  userId    String
-  token     String   @unique
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([expiresAt])
-}
-
-model OrgMembership {
-  id        String   @id @default(cuid())
-  orgId     String
-  userId    String
-  role      String
-  createdAt DateTime @default(now())
-
-  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([orgId, userId])
-  @@index([userId])
-}
-
-// هذا نموذج مهمل (لن يُنشئ جدولاً) — مفيد لاحقًا لو أردت View
-model OrgUserView {
-  id    String @id
-  email String
-  name  String?
-
-  @@ignore
-}
-
-// ===== Services & Leads (optional)
-model Service {
-  id          String   @id @default(cuid())
-  orgId       String?
-  slug        String
-  name        String
-  description String?
-  priceFrom   Int?
-  sortOrder   Int      @default(0)
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  org   Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
-  leads Lead[]
-
-  @@unique([orgId, slug])
-  @@index([orgId, active, sortOrder])
-}
-
-model Lead {
-  id        String     @id @default(cuid())
-  orgId     String?
-  name      String
-  email     String
-  phone     String?
-  message   String
-  budget    Int?
-  status    String     @default("new")
-  serviceId String?
-  source    String?
-  createdAt DateTime   @default(now())
-
-  org     Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
-  service Service?      @relation(fields: [serviceId], references: [id], onDelete: SetNull)
-
-  @@index([status])
-  @@index([orgId])
-  @@index([serviceId])
-}
-
-// ===== Assets & Themes
-model Asset {
-  id        String   @id @default(cuid())
-  orgId     String?
-  projectId String?
-  type      String
-  url       String?
-  path      String?
-  size      Int?
-  createdAt DateTime @default(now())
-
-  org     Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
-  project Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
-
-  @@index([orgId])
-  @@index([projectId])
-}
-
-model Theme {
-  id        String   @id @default(cuid())
-  projectId String?
-  name      String
-  sourceUrl String?
-  data      Json?
-  createdAt DateTime @default(now())
-
-  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
-
-  @@index([projectId])
-}
-
-// ===== API Keys & Chat (optional)
-model ApiKey {
-  id            String   @id @default(cuid())
-  orgId         String?
-  label         String?
-  provider      String
-  keyCiphertext String
-  keyIv         String
-  keyTag        String
-  lastFour      String?
-  createdAt     DateTime @default(now())
-
-  org Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
-
-  @@index([provider])
-  @@index([orgId])
-}
-
-model ChatSession {
-  id        String   @id @default(cuid())
-  orgId     String?
-  projectId String?
-  title     String?
-  createdAt DateTime @default(now())
-
-  org      Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
-  project  Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  messages ChatMessage[]
-
-  @@index([orgId])
-  @@index([projectId])
-}
-
-model ChatMessage {
-  id        String    @id @default(cuid())
-  sessionId String
-  role      String
-  content   String
-  createdAt DateTime  @default(now())
-
-  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-
-  @@index([sessionId])
-}
-
-// ===== Forms (optional)
-model Form {
-  id        String   @id @default(cuid())
-  orgId     String
-  name      String
-  slug      String
-  createdAt DateTime @default(now())
-
-  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  submissions Submission[]
-
-  @@unique([orgId, slug])
-  @@index([orgId])
-}
-
-model Submission {
-  id        String   @id @default(cuid())
-  formId    String
-  data      Json
-  createdAt DateTime @default(now())
-
-  form Form @relation(fields: [formId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-
-  @@index([formId])
-}
-
-// ===== Auto Layer: Resource / Event
-model Resource {
-  id        String   @id @default(cuid())
-  orgId     String?
-  projectId String?
-  kind      String
-  key       String?
-  status    String?
-  data      Json
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  org     Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
-  project Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  events  Event[]
-
-  @@index([orgId])
-  @@index([projectId])
-  @@index([kind])
-  @@index([status])
-  @@unique([orgId, projectId, kind, key])
-}
-
-model Event {
-  id         String   @id @default(cuid())
-  orgId      String?
-  projectId  String?
-  resourceId String?
-  type       String
-  data       Json?
-  createdAt  DateTime @default(now())
-
-  org      Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
-  project  Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  resource Resource?      @relation(fields: [resourceId], references: [id], onDelete: SetNull)
-
-  @@index([orgId])
-  @@index([projectId])
-  @@index([resourceId])
-  @@index([type])
-}
-
-// ===== E-commerce Enterprise
-model Vendor {
-  id        String   @id @default(cuid())
-  orgId     String
-  name      String
-  slug      String
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  products Product[]
-
-  @@unique([orgId, slug])
-  @@index([orgId, active])
-}
-
-model Category {
-  id          String        @id @default(cuid())
-  orgId       String
-  name        String
-  slug        String
-  description String?
-  parentId    String?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-
-  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  parent   Category?    @relation("CategoryToChildren", fields: [parentId], references: [id], onDelete: SetNull)
-  children Category[]   @relation("CategoryToChildren")
-  products ProductCategory[]
-
-  @@unique([orgId, slug])
-  @@index([orgId])
-}
-
+// استكمال نموذج Product
 model Product {
   id          String            @id @default(cuid())
   orgId       String
@@ -340,7 +7,146 @@ model Product {
   slug        String
   description String?
   status      String            @default("draft")
+  price       Decimal           @default(0)
+  currency    String            @default("USD")
+  stock       Int               @default(0)
+  active      Boolean           @default(true)
+  images      Json?
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
 
-  org        Organization  @relation(fields:
+  org        Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  vendor     Vendor?           @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  categories ProductCategory[]
+  carts      CartItem[]
+  orders     OrderItem[]
+
+  @@unique([orgId, slug])
+  @@index([orgId])
+  @@index([vendorId])
+  @@index([active])
+}
+
+// Many-to-Many: Product <-> Category
+model ProductCategory {
+  id         String    @id @default(cuid())
+  productId  String
+  categoryId String
+
+  product    Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  category   Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, categoryId])
+  @@index([categoryId])
+}
+
+// ===== Cart (سلة التسوق)
+model Cart {
+  id        String    @id @default(cuid())
+  orgId     String
+  userId    String
+  status    String    @default("active")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+
+  @@index([orgId])
+  @@index([userId])
+  @@index([status])
+}
+
+// عناصر السلة
+model CartItem {
+  id        String    @id @default(cuid())
+  cartId    String
+  productId String
+  quantity  Int       @default(1)
+  price     Decimal   @default(0)
+  createdAt DateTime  @default(now())
+
+  cart      Cart      @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([cartId])
+  @@index([productId])
+}
+
+// ===== Order (الطلب)
+model Order {
+  id         String      @id @default(cuid())
+  orgId      String
+  userId     String
+  status     String      @default("pending")
+  total      Decimal     @default(0)
+  currency   String      @default("USD")
+  addressId  String?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  address    Address?     @relation(fields: [addressId], references: [id], onDelete: SetNull)
+  items      OrderItem[]
+
+  @@index([orgId])
+  @@index([userId])
+  @@index([status])
+}
+
+// عناصر الطلب
+model OrderItem {
+  id         String    @id @default(cuid())
+  orderId    String
+  productId  String
+  quantity   Int       @default(1)
+  price      Decimal   @default(0)
+  createdAt  DateTime  @default(now())
+
+  order      Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product    Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+// ===== Address (العناوين)
+model Address {
+  id         String    @id @default(cuid())
+  orgId      String
+  userId     String
+  label      String?
+  country    String
+  city       String
+  street     String
+  zip        String?
+  phone      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders     Order[]
+
+  @@index([orgId])
+  @@index([userId])
+}
+
+// ===== WebhookEvent (أحداث الربط البرمجي)
+model WebhookEvent {
+  id         String    @id @default(cuid())
+  orgId      String
+  type       String
+  payload    Json
+  status     String    @default("pending")
+  createdAt  DateTime  @default(now())
+  processedAt DateTime?
+
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([type])
+  @@index([status])
+}
