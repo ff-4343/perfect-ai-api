@@ -8,9 +8,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/* =========================
-   Core multi-tenant (Org/Project)
-   ========================= */
+// ===== Core multi-tenant (Org/Project)
 model Organization {
   id        String     @id @default(cuid())
   name      String
@@ -27,10 +25,8 @@ model Organization {
   resources Resource[]
   events    Event[]
 
-  // New enterprise relations
   memberships OrgMembership[]
   vendors     Vendor[]
-  users       OrgUserView[] // (virtual via OrgMembership) – للاستخدام المنطقي فقط
   categories  Category[]
   products    Product[]
   carts       Cart[]
@@ -63,9 +59,7 @@ model Project {
   @@index([status])
 }
 
-/* =========================
-   Users / Auth / Membership
-   ========================= */
+// ===== Users / Auth / Membership
 model User {
   id        String         @id @default(cuid())
   email     String         @unique
@@ -94,12 +88,11 @@ model Session {
   @@index([expiresAt])
 }
 
-// ربط المستخدم بالمنظمة + دور (RBAC)
 model OrgMembership {
   id        String   @id @default(cuid())
   orgId     String
   userId    String
-  role      String   // OWNER/ADMIN/EDITOR/VIEWER/VENDOR
+  role      String
   createdAt DateTime @default(now())
 
   org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -109,18 +102,16 @@ model OrgMembership {
   @@index([userId])
 }
 
-// View منطقي (لا ينشئ جدول) – للاستخدام بالتطبيق فقط
-/// @@ignore
+// هذا نموذج مهمل (لن يُنشئ جدولاً) — مفيد لاحقًا لو أردت View
 model OrgUserView {
   id    String @id
   email String
   name  String?
-  /// @@ignore
+
+  @@ignore
 }
 
-/* =========================
-   Services & Leads (اختياري)
-   ========================= */
+// ===== Services & Leads (optional)
 model Service {
   id          String   @id @default(cuid())
   orgId       String?
@@ -148,7 +139,7 @@ model Lead {
   phone     String?
   message   String
   budget    Int?
-  status    String     @default("new") // new/contacted/won/lost
+  status    String     @default("new")
   serviceId String?
   source    String?
   createdAt DateTime   @default(now())
@@ -161,9 +152,7 @@ model Lead {
   @@index([serviceId])
 }
 
-/* =========================
-   Assets & Themes
-   ========================= */
+// ===== Assets & Themes
 model Asset {
   id        String   @id @default(cuid())
   orgId     String?
@@ -194,14 +183,12 @@ model Theme {
   @@index([projectId])
 }
 
-/* =========================
-   API Keys & Chat (اختياري)
-   ========================= */
+// ===== API Keys & Chat (optional)
 model ApiKey {
   id            String   @id @default(cuid())
   orgId         String?
   label         String?
-  provider      String   // OPENAI/STRIPE/...
+  provider      String
   keyCiphertext String
   keyIv         String
   keyTag        String
@@ -232,7 +219,7 @@ model ChatSession {
 model ChatMessage {
   id        String    @id @default(cuid())
   sessionId String
-  role      String    // user/assistant/system
+  role      String
   content   String
   createdAt DateTime  @default(now())
 
@@ -241,9 +228,7 @@ model ChatMessage {
   @@index([sessionId])
 }
 
-/* =========================
-   Forms (اختياري)
-   ========================= */
+// ===== Forms (optional)
 model Form {
   id        String   @id @default(cuid())
   orgId     String
@@ -269,14 +254,12 @@ model Submission {
   @@index([formId])
 }
 
-/* =========================
-   Auto Layer: Resource / Event
-   ========================= */
+// ===== Auto Layer: Resource / Event
 model Resource {
   id        String   @id @default(cuid())
   orgId     String?
   projectId String?
-  kind      String   // page/nav/catalog/product/...
+  kind      String
   key       String?
   status    String?
   data      Json
@@ -299,7 +282,7 @@ model Event {
   orgId      String?
   projectId  String?
   resourceId String?
-  type       String   // created/updated/deploy/...
+  type       String
   data       Json?
   createdAt  DateTime @default(now())
 
@@ -313,11 +296,7 @@ model Event {
   @@index([type])
 }
 
-/* =========================
-   E-commerce Enterprise
-   ========================= */
-
-// البائعون (متعدد المورّدين)
+// ===== E-commerce Enterprise
 model Vendor {
   id        String   @id @default(cuid())
   orgId     String
@@ -334,7 +313,6 @@ model Vendor {
   @@index([orgId, active])
 }
 
-// التصنيفات (هرمية)
 model Category {
   id          String        @id @default(cuid())
   orgId       String
@@ -354,7 +332,6 @@ model Category {
   @@index([orgId])
 }
 
-// المنتجات
 model Product {
   id          String            @id @default(cuid())
   orgId       String
@@ -362,210 +339,8 @@ model Product {
   name        String
   slug        String
   description String?
-  status      String            @default("draft") // draft/active/archived
+  status      String            @default("draft")
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
 
-  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  vendor    Vendor?      @relation(fields: [vendorId], references: [id], onDelete: SetNull)
-  categories ProductCategory[]
-  skus       ProductSku[]
-
-  @@unique([orgId, slug])
-  @@index([orgId])
-  @@index([vendorId])
-}
-
-// ربط منتج ← تصنيف (many-to-many)
-model ProductCategory {
-  productId  String
-  categoryId String
-  assignedAt DateTime @default(now())
-
-  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-
-  @@id([productId, categoryId])
-}
-
-// متغيرات المنتج (SKU)
-model ProductSku {
-  id             String      @id @default(cuid())
-  productId      String
-  code           String      // SKU code
-  price          Int         // cents
-  currency       String      // ISO-4217 (3 أحرف)
-  compareAtPrice Int?
-  attributes     Json?
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
-
-  product   Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
-  inventory Inventory?
-  orderItems OrderItem[]
-  cartItems  CartItem[]
-
-  @@unique([productId, code])
-  @@index([productId])
-}
-
-// المخزون
-model Inventory {
-  id        String    @id @default(cuid())
-  skuId     String    @unique
-  quantity  Int       @default(0)
-  reserved  Int       @default(0)
-  updatedAt DateTime  @updatedAt
-
-  sku ProductSku @relation(fields: [skuId], references: [id], onDelete: Cascade)
-}
-
-// السلة
-model Cart {
-  id        String   @id @default(cuid())
-  orgId     String
-  userId    String?
-  guestId   String?  @unique
-  status    String   @default("open") // open/converted/abandoned
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  user  User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
-  items CartItem[]
-  order Order?
-
-  @@index([orgId])
-  @@index([userId])
-}
-
-// عناصر السلة
-model CartItem {
-  id        String   @id @default(cuid())
-  cartId    String
-  skuId     String
-  quantity  Int      @default(1)
-  price     Int      // snapshot (cents)
-  currency  String
-  createdAt DateTime @default(now())
-
-  cart Cart       @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  sku  ProductSku @relation(fields: [skuId], references: [id], onDelete: Restrict)
-
-  @@index([cartId])
-  @@index([skuId])
-}
-
-// الطلبات
-model Order {
-  id                String    @id @default(cuid())
-  orgId             String
-  userId            String?
-  cartId            String?
-  number            Int
-  status            String    @default("pending") // pending/paid/fulfilled/canceled/refunded
-  subtotal          Int       @default(0)
-  shipping          Int       @default(0)
-  tax               Int       @default(0)
-  total             Int       @default(0)
-  currency          String
-  shippingAddressId String?
-  billingAddressId  String?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-
-  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  user   User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
-  cart   Cart?        @relation(fields: [cartId], references: [id], onDelete: SetNull)
-  items  OrderItem[]
-  payments Payment[]
-
-  shippingAddress Address? @relation("Shipping", fields: [shippingAddressId], references: [id])
-  billingAddress  Address? @relation("Billing", fields: [billingAddressId], references: [id])
-
-  @@index([orgId])
-  @@index([userId])
-  @@index([status])
-  @@unique([orgId, number])
-}
-
-// عناصر الطلب
-model OrderItem {
-  id        String   @id @default(cuid())
-  orderId   String
-  skuId     String
-  vendorId  String?
-  name      String
-  quantity  Int
-  price     Int      // unit price (cents)
-  currency  String
-  createdAt DateTime @default(now())
-
-  order  Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  sku    ProductSku @relation(fields: [skuId], references: [id], onDelete: Restrict)
-  vendor Vendor?    @relation(fields: [vendorId], references: [id], onDelete: SetNull)
-
-  @@index([orderId])
-  @@index([skuId])
-  @@index([vendorId])
-}
-
-// العناوين (مستخدم/منظمة/طلبات)
-model Address {
-  id        String   @id @default(cuid())
-  orgId     String?
-  userId    String?
-  name      String?
-  phone     String?
-  country   String?
-  city      String?
-  line1     String?
-  line2     String?
-  postalCode String?
-  createdAt DateTime @default(now())
-
-  org  Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
-  user User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
-
-  // back-relations لأوامر الشحن/الفوترة
-  ordersShipping Order[] @relation("Shipping")
-  ordersBilling  Order[] @relation("Billing")
-
-  @@index([orgId])
-  @@index([userId])
-}
-
-// المدفوعات
-model Payment {
-  id          String   @id @default(cuid())
-  orderId     String
-  provider    String   // STRIPE/PAYPAL/...
-  status      String   @default("pending") // pending/succeeded/failed/refunded
-  amount      Int
-  currency    String
-  providerRef String?
-  payload     Json?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
-
-  @@index([orderId])
-  @@index([status])
-}
-
-// Webhooks للأحداث (مدفوعات/نشر/...)
-model WebhookEvent {
-  id        String   @id @default(cuid())
-  orgId     String?
-  type      String
-  source    String   // PAYMENTS/DEPLOY/...
-  data      Json?
-  createdAt DateTime @default(now())
-
-  org Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
-
-  @@index([orgId])
-  @@index([type])
-  @@index([source])
-}
+  org        Organization  @relation(fields:
