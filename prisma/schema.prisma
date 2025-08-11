@@ -1,3 +1,8 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DB_URL")
+}
+
 // استكمال نموذج Product
 model Product {
   id          String            @id @default(cuid())
