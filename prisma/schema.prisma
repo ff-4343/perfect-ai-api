@@ -2,7 +2,39 @@ datasource db {
   provider = "postgresql"
   url      = env("DB_URL")
 }
-// استكمال نموذج Product
+
+// ===== تعريف الجداول الأساسية =====
+model Organization {
+  id            String     @id @default(cuid())
+  name          String
+  products      Product[]
+  carts         Cart[]
+  orders        Order[]
+  addresses     Address[]
+  webhookEvents WebhookEvent[]
+}
+
+model Vendor {
+  id        String     @id @default(cuid())
+  name      String
+  products  Product[]
+}
+
+model Category {
+  id        String     @id @default(cuid())
+  name      String
+  products  ProductCategory[]
+}
+
+model User {
+  id        String     @id @default(cuid())
+  name      String
+  carts     Cart[]
+  orders    Order[]
+  addresses Address[]
+}
+
+// ===== المنتجات =====
 model Product {
   id          String            @id @default(cuid())
   orgId       String
@@ -19,11 +51,11 @@ model Product {
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
 
-  org        Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  vendor     Vendor?           @relation(fields: [vendorId], references: [id], onDelete: SetNull)
-  categories ProductCategory[]
-  carts      CartItem[]
-  orders     OrderItem[]
+  org         Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  vendor      Vendor?           @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  categories  ProductCategory[]
+  carts       CartItem[]
+  orders      OrderItem[]
 
   @@unique([orgId, slug])
   @@index([orgId])
@@ -44,7 +76,7 @@ model ProductCategory {
   @@index([categoryId])
 }
 
-// ===== Cart (سلة التسوق)
+// ===== سلة التسوق =====
 model Cart {
   id        String    @id @default(cuid())
   orgId     String
@@ -78,7 +110,7 @@ model CartItem {
   @@index([productId])
 }
 
-// ===== Order (الطلب)
+// ===== الطلب =====
 model Order {
   id         String      @id @default(cuid())
   orgId      String
@@ -116,7 +148,7 @@ model OrderItem {
   @@index([productId])
 }
 
-// ===== Address (العناوين)
+// ===== العناوين =====
 model Address {
   id         String    @id @default(cuid())
   orgId      String
@@ -138,7 +170,7 @@ model Address {
   @@index([userId])
 }
 
-// ===== WebhookEvent (أحداث الربط البرمجي)
+// ===== أحداث الربط البرمجي =====
 model WebhookEvent {
   id         String    @id @default(cuid())
   orgId      String
