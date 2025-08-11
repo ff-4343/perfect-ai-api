@@ -2,10 +2,10 @@ import express from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import 'dotenv/config';
-import orgsRouter from './routes/orgs';
-import projectsRouter from './routes/projects';
+import orgsRouter from './routes/orgs.js';
+import projectsRouter from './routes/projects.js';
 import swaggerUi from 'swagger-ui-express';
-import { openApiSpec } from './docs';
+import { openApiSpec } from './docs.js';
 const app = express();
 // مهم لقراءة IP الحقيقي خلف الـ proxy على Render (للـ rate limit)
 app.set('trust proxy', 1);
@@ -13,7 +13,7 @@ app.set('trust proxy', 1);
 const allowed = process.env.CORS_ORIGIN?.split(',').map(s => s.trim()).filter(Boolean);
 app.use(cors({ origin: allowed && allowed.length ? allowed : true }));
 // Rate limit: 120 طلب/دقيقة لكل IP
-app.use(rateLimit({ windowMs: 60000, max: 120 }));
+app.use(rateLimit({ windowMs: 60_000, max: 120 }));
 app.use(express.json({ limit: '1mb' }));
 // Health
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
