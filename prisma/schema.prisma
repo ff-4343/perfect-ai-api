@@ -1,4 +1,127 @@
-// استكمال نموذج Product
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===== Organization (Multi-tenant root)
+model Organization {
+  id          String      @id @default(cuid())
+  name        String
+  slug        String      @unique
+  domain      String?     @unique
+  status      String      @default("active")
+  plan        String      @default("basic")
+  settings    Json?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  users       User[]
+  projects    Project[]
+  vendors     Vendor[]
+  categories  Category[]
+  products    Product[]
+  carts       Cart[]
+  orders      Order[]
+  addresses   Address[]
+  webhookEvents WebhookEvent[]
+
+  @@index([slug])
+  @@index([status])
+}
+
+// ===== User
+model User {
+  id        String    @id @default(cuid())
+  orgId     String
+  email     String    @unique
+  name      String?
+  role      String    @default("user")
+  status    String    @default("active")
+  settings  Json?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  carts     Cart[]
+  orders    Order[]
+  addresses Address[]
+
+  @@unique([orgId, email])
+  @@index([orgId])
+  @@index([email])
+}
+
+// ===== Project
+model Project {
+  id          String    @id @default(cuid())
+  orgId       String
+  name        String
+  slug        String
+  description String?
+  status      String    @default("planning")
+  settings    Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, slug])
+  @@index([orgId])
+  @@index([status])
+}
+
+// ===== Vendor (مورد)
+model Vendor {
+  id          String    @id @default(cuid())
+  orgId       String
+  name        String
+  slug        String
+  description String?
+  status      String    @default("active")
+  settings    Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  products    Product[]
+
+  @@unique([orgId, slug])
+  @@index([orgId])
+  @@index([status])
+}
+
+// ===== Category (فئة)
+model Category {
+  id          String    @id @default(cuid())
+  orgId       String
+  name        String
+  slug        String
+  description String?
+  parentId    String?
+  status      String    @default("active")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  org         Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  parent      Category?        @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Category[]       @relation("CategoryHierarchy")
+  products    ProductCategory[]
+
+  @@unique([orgId, slug])
+  @@index([orgId])
+  @@index([parentId])
+  @@index([status])
+}
+
+// ===== Product
 model Product {
   id          String            @id @default(cuid())
   orgId       String
