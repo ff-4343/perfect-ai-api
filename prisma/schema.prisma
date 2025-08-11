@@ -31,9 +31,9 @@ model Project {
   id          String    @id @default(cuid())
   orgId       String
   name        String
-  archetype   String?
+  archetype   String    @default("")     // Keep required for backward compatibility
   status      String    @default("planning")  // نص لتبقى متوافقة مع الكود الحالي
-  spec        Json?
+  spec        Json?                      // Make optional for backward compatibility  
   description String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
