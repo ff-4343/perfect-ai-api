@@ -4,9 +4,11 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
+    "build:safe": "npm run prisma:generate:safe && npm run build",
     "start": "node dist/server.js",
     "dev": "tsx watch src/server.ts",
-    "prisma:generate": "prisma generate"
+    "prisma:generate": "prisma generate",
+    "prisma:generate:safe": "prisma generate || echo 'Warning: Prisma generation failed, continuing with degraded functionality...'"
   },
   "dependencies": {
     "@prisma/client": "5.18.0",
