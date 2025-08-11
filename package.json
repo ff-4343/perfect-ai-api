@@ -23,5 +23,6 @@
     "@types/node": "22.5.4",
     "@types/express": "4.17.21",
     "@types/cors": "2.8.17"
+    "openapi-types": "^12.1.3",
   }
 }
