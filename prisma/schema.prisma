@@ -1,3 +1,4 @@
+// prisma/schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,25 +8,564 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/* =========================
+   Core multi-tenant (Org/Project)
+   ========================= */
 model Organization {
-  id        String   @id @default(cuid())
+  id        String     @id @default(cuid())
   name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt      // 👈 جديد
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
   projects  Project[]
+  services  Service[]
+  leads     Lead[]
+  apiKeys   ApiKey[]
+  assets    Asset[]
+  forms     Form[]
+  chat      ChatSession[]
+  resources Resource[]
+  events    Event[]
+
+  // New enterprise relations
+  memberships OrgMembership[]
+  vendors     Vendor[]
+  users       OrgUserView[] // (virtual via OrgMembership) – للاستخدام المنطقي فقط
+  categories  Category[]
+  products    Product[]
+  carts       Cart[]
+  orders      Order[]
+  addresses   Address[]
+  webhooks    WebhookEvent[]
+
+  @@index([name])
 }
 
 model Project {
+  id          String   @id @default(cuid())
+  orgId       String
+  name        String
+  archetype   String?
+  status      String   @default("planning")
+  spec        Json?
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  assets     Asset[]
+  themes     Theme[]
+  chat       ChatSession[]
+  resources  Resource[]
+  events     Event[]
+
+  @@index([orgId])
+  @@index([status])
+}
+
+/* =========================
+   Users / Auth / Membership
+   ========================= */
+model User {
+  id        String         @id @default(cuid())
+  email     String         @unique
+  name      String?
+  avatarUrl String?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  sessions     Session[]
+  memberships  OrgMembership[]
+  addresses    Address[]
+  carts        Cart[]
+  orders       Order[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// ربط المستخدم بالمنظمة + دور (RBAC)
+model OrgMembership {
+  id        String   @id @default(cuid())
+  orgId     String
+  userId    String
+  role      String   // OWNER/ADMIN/EDITOR/VIEWER/VENDOR
+  createdAt DateTime @default(now())
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, userId])
+  @@index([userId])
+}
+
+// View منطقي (لا ينشئ جدول) – للاستخدام بالتطبيق فقط
+/// @@ignore
+model OrgUserView {
+  id    String @id
+  email String
+  name  String?
+  /// @@ignore
+}
+
+/* =========================
+   Services & Leads (اختياري)
+   ========================= */
+model Service {
+  id          String   @id @default(cuid())
+  orgId       String?
+  slug        String
+  name        String
+  description String?
+  priceFrom   Int?
+  sortOrder   Int      @default(0)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  org   Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  leads Lead[]
+
+  @@unique([orgId, slug])
+  @@index([orgId, active, sortOrder])
+}
+
+model Lead {
+  id        String     @id @default(cuid())
+  orgId     String?
+  name      String
+  email     String
+  phone     String?
+  message   String
+  budget    Int?
+  status    String     @default("new") // new/contacted/won/lost
+  serviceId String?
+  source    String?
+  createdAt DateTime   @default(now())
+
+  org     Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  service Service?      @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([orgId])
+  @@index([serviceId])
+}
+
+/* =========================
+   Assets & Themes
+   ========================= */
+model Asset {
+  id        String   @id @default(cuid())
+  orgId     String?
+  projectId String?
+  type      String
+  url       String?
+  path      String?
+  size      Int?
+  createdAt DateTime @default(now())
+
+  org     Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  project Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([orgId])
+  @@index([projectId])
+}
+
+model Theme {
+  id        String   @id @default(cuid())
+  projectId String?
+  name      String
+  sourceUrl String?
+  data      Json?
+  createdAt DateTime @default(now())
+
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+}
+
+/* =========================
+   API Keys & Chat (اختياري)
+   ========================= */
+model ApiKey {
+  id            String   @id @default(cuid())
+  orgId         String?
+  label         String?
+  provider      String   // OPENAI/STRIPE/...
+  keyCiphertext String
+  keyIv         String
+  keyTag        String
+  lastFour      String?
+  createdAt     DateTime @default(now())
+
+  org Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+
+  @@index([provider])
+  @@index([orgId])
+}
+
+model ChatSession {
+  id        String   @id @default(cuid())
+  orgId     String?
+  projectId String?
+  title     String?
+  createdAt DateTime @default(now())
+
+  org      Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  project  Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  messages ChatMessage[]
+
+  @@index([orgId])
+  @@index([projectId])
+}
+
+model ChatMessage {
+  id        String    @id @default(cuid())
+  sessionId String
+  role      String    // user/assistant/system
+  content   String
+  createdAt DateTime  @default(now())
+
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([sessionId])
+}
+
+/* =========================
+   Forms (اختياري)
+   ========================= */
+model Form {
   id        String   @id @default(cuid())
   orgId     String
   name      String
-  archetype String
-  status    String   @default("planning")
-  spec      Json
+  slug      String
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt      // 👈 جديد
 
-  org Organization @relation(fields: [orgId], references: [id])
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  submissions Submission[]
 
-  @@index([orgId])                   // 👈 فهرس للاستعلامات حسب المنظمة
+  @@unique([orgId, slug])
+  @@index([orgId])
+}
+
+model Submission {
+  id        String   @id @default(cuid())
+  formId    String
+  data      Json
+  createdAt DateTime @default(now())
+
+  form Form @relation(fields: [formId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([formId])
+}
+
+/* =========================
+   Auto Layer: Resource / Event
+   ========================= */
+model Resource {
+  id        String   @id @default(cuid())
+  orgId     String?
+  projectId String?
+  kind      String   // page/nav/catalog/product/...
+  key       String?
+  status    String?
+  data      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org     Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  project Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  events  Event[]
+
+  @@index([orgId])
+  @@index([projectId])
+  @@index([kind])
+  @@index([status])
+  @@unique([orgId, projectId, kind, key])
+}
+
+model Event {
+  id         String   @id @default(cuid())
+  orgId      String?
+  projectId  String?
+  resourceId String?
+  type       String   // created/updated/deploy/...
+  data       Json?
+  createdAt  DateTime @default(now())
+
+  org      Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  project  Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  resource Resource?      @relation(fields: [resourceId], references: [id], onDelete: SetNull)
+
+  @@index([orgId])
+  @@index([projectId])
+  @@index([resourceId])
+  @@index([type])
+}
+
+/* =========================
+   E-commerce Enterprise
+   ========================= */
+
+// البائعون (متعدد المورّدين)
+model Vendor {
+  id        String   @id @default(cuid())
+  orgId     String
+  name      String
+  slug      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  products Product[]
+
+  @@unique([orgId, slug])
+  @@index([orgId, active])
+}
+
+// التصنيفات (هرمية)
+model Category {
+  id          String        @id @default(cuid())
+  orgId       String
+  name        String
+  slug        String
+  description String?
+  parentId    String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  parent   Category?    @relation("CategoryToChildren", fields: [parentId], references: [id], onDelete: SetNull)
+  children Category[]   @relation("CategoryToChildren")
+  products ProductCategory[]
+
+  @@unique([orgId, slug])
+  @@index([orgId])
+}
+
+// المنتجات
+model Product {
+  id          String            @id @default(cuid())
+  orgId       String
+  vendorId    String?
+  name        String
+  slug        String
+  description String?
+  status      String            @default("draft") // draft/active/archived
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  vendor    Vendor?      @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  categories ProductCategory[]
+  skus       ProductSku[]
+
+  @@unique([orgId, slug])
+  @@index([orgId])
+  @@index([vendorId])
+}
+
+// ربط منتج ← تصنيف (many-to-many)
+model ProductCategory {
+  productId  String
+  categoryId String
+  assignedAt DateTime @default(now())
+
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([productId, categoryId])
+}
+
+// متغيرات المنتج (SKU)
+model ProductSku {
+  id             String      @id @default(cuid())
+  productId      String
+  code           String      // SKU code
+  price          Int         // cents
+  currency       String      // ISO-4217 (3 أحرف)
+  compareAtPrice Int?
+  attributes     Json?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  product   Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  inventory Inventory?
+  orderItems OrderItem[]
+  cartItems  CartItem[]
+
+  @@unique([productId, code])
+  @@index([productId])
+}
+
+// المخزون
+model Inventory {
+  id        String    @id @default(cuid())
+  skuId     String    @unique
+  quantity  Int       @default(0)
+  reserved  Int       @default(0)
+  updatedAt DateTime  @updatedAt
+
+  sku ProductSku @relation(fields: [skuId], references: [id], onDelete: Cascade)
+}
+
+// السلة
+model Cart {
+  id        String   @id @default(cuid())
+  orgId     String
+  userId    String?
+  guestId   String?  @unique
+  status    String   @default("open") // open/converted/abandoned
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user  User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  items CartItem[]
+  order Order?
+
+  @@index([orgId])
+  @@index([userId])
+}
+
+// عناصر السلة
+model CartItem {
+  id        String   @id @default(cuid())
+  cartId    String
+  skuId     String
+  quantity  Int      @default(1)
+  price     Int      // snapshot (cents)
+  currency  String
+  createdAt DateTime @default(now())
+
+  cart Cart       @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  sku  ProductSku @relation(fields: [skuId], references: [id], onDelete: Restrict)
+
+  @@index([cartId])
+  @@index([skuId])
+}
+
+// الطلبات
+model Order {
+  id                String    @id @default(cuid())
+  orgId             String
+  userId            String?
+  cartId            String?
+  number            Int
+  status            String    @default("pending") // pending/paid/fulfilled/canceled/refunded
+  subtotal          Int       @default(0)
+  shipping          Int       @default(0)
+  tax               Int       @default(0)
+  total             Int       @default(0)
+  currency          String
+  shippingAddressId String?
+  billingAddressId  String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user   User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  cart   Cart?        @relation(fields: [cartId], references: [id], onDelete: SetNull)
+  items  OrderItem[]
+  payments Payment[]
+
+  shippingAddress Address? @relation("Shipping", fields: [shippingAddressId], references: [id])
+  billingAddress  Address? @relation("Billing", fields: [billingAddressId], references: [id])
+
+  @@index([orgId])
+  @@index([userId])
+  @@index([status])
+  @@unique([orgId, number])
+}
+
+// عناصر الطلب
+model OrderItem {
+  id        String   @id @default(cuid())
+  orderId   String
+  skuId     String
+  vendorId  String?
+  name      String
+  quantity  Int
+  price     Int      // unit price (cents)
+  currency  String
+  createdAt DateTime @default(now())
+
+  order  Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  sku    ProductSku @relation(fields: [skuId], references: [id], onDelete: Restrict)
+  vendor Vendor?    @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@index([skuId])
+  @@index([vendorId])
+}
+
+// العناوين (مستخدم/منظمة/طلبات)
+model Address {
+  id        String   @id @default(cuid())
+  orgId     String?
+  userId    String?
+  name      String?
+  phone     String?
+  country   String?
+  city      String?
+  line1     String?
+  line2     String?
+  postalCode String?
+  createdAt DateTime @default(now())
+
+  org  Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  user User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // back-relations لأوامر الشحن/الفوترة
+  ordersShipping Order[] @relation("Shipping")
+  ordersBilling  Order[] @relation("Billing")
+
+  @@index([orgId])
+  @@index([userId])
+}
+
+// المدفوعات
+model Payment {
+  id          String   @id @default(cuid())
+  orderId     String
+  provider    String   // STRIPE/PAYPAL/...
+  status      String   @default("pending") // pending/succeeded/failed/refunded
+  amount      Int
+  currency    String
+  providerRef String?
+  payload     Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([status])
+}
+
+// Webhooks للأحداث (مدفوعات/نشر/...)
+model WebhookEvent {
+  id        String   @id @default(cuid())
+  orgId     String?
+  type      String
+  source    String   // PAYMENTS/DEPLOY/...
+  data      Json?
+  createdAt DateTime @default(now())
+
+  org Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+
+  @@index([orgId])
+  @@index([type])
+  @@index([source])
 }
