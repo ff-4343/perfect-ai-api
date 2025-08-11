@@ -1,3 +1,102 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===== User Model (Base user model for multi-tenant)
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations to other models
+  carts     Cart[]
+  orders    Order[]
+  addresses Address[]
+
+  @@index([email])
+}
+
+// ===== Organization Model
+model Organization {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  projects    Project[]
+  categories  Category[]
+  vendors     Vendor[]
+  products    Product[]
+  carts       Cart[]
+  orders      Order[]
+  addresses   Address[]
+  webhooks    WebhookEvent[]
+
+  @@index([name])
+}
+
+// ===== Project Model
+model Project {
+  id          String   @id @default(cuid())
+  orgId       String
+  name        String
+  description String?
+  status      String   @default("planning")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, name])
+  @@index([orgId])
+}
+
+// ===== Category Model
+model Category {
+  id          String   @id @default(cuid())
+  orgId       String
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  org      Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  products ProductCategory[]
+
+  @@unique([orgId, name])
+  @@index([orgId])
+}
+
+// ===== Vendor Model
+model Vendor {
+  id          String   @id @default(cuid())
+  orgId       String
+  name        String
+  email       String?
+  phone       String?
+  address     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  products Product[]
+
+  @@unique([orgId, name])
+  @@index([orgId])
+}
+
 // استكمال نموذج Product
 model Product {
   id          String            @id @default(cuid())
