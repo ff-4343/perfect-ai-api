@@ -3,53 +3,36 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import 'dotenv/config';
 
-import swaggerUi from 'swagger-ui-express';
-import { openApiSpec } from './docs';
 import orgsRouter from './routes/orgs';
 import projectsRouter from './routes/projects';
 
+import swaggerUi from 'swagger-ui-express';
+import { openApiSpec } from './docs';
+
 const app = express();
 
-/* Render/Proxies: يلزم لتعمل الـ rate-limit و IPs بشكل صحيح */
+// مهم لقراءة IP الحقيقي خلف الـ proxy على Render (للـ rate limit)
 app.set('trust proxy', 1);
 
-/* CORS: إن وُجد CORS_ORIGIN كقائمة مفصولة بفواصل نقيّد الأصل، غير ذلك نسمح للجميع */
-const allowed = process.env.CORS_ORIGIN
-  ?.split(',')
-  .map((s) => s.trim())
-  .filter(Boolean);
-app.use(
-  cors({
-    origin: allowed && allowed.length ? allowed : true,
-  })
-);
+// CORS: لو CORS_ORIGIN موجودة نقيّد، وإلا نسمح للجميع
+const allowed = process.env.CORS_ORIGIN?.split(',').map(s => s.trim()).filter(Boolean);
+app.use(cors({ origin: allowed && allowed.length ? allowed : true }));
 
-/* Rate limit: 120 طلب/دقيقة لكل IP */
-app.use(
-  rateLimit({
-    windowMs: 60_000,
-    max: 120,
-    standardHeaders: true,
-    legacyHeaders: false,
-  })
-);
+// Rate limit: 120 طلب/دقيقة لكل IP
+app.use(rateLimit({ windowMs: 60_000, max: 120 }));
 
-/* JSON body */
 app.use(express.json({ limit: '1mb' }));
 
-/* Health check: نص عادي لموافقة أي فاحص صحي */
-app.get('/health', (_req, res) => res.type('text/plain').send('ok'));
+// Health
+app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
-/* Swagger UI */
+// 🔹 Swagger UI (قبل 404)
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(openApiSpec));
 
-/* Routers (API) */
-app.use('/api/orgs', orgsRouter);
-app.use('/api/projects', projectsRouter);
-
-/* -------- Admin page (قبل 404 وقبل listen) -------- */
-app.get('/admin', (_req: Request, res: Response) => {
-  const html = `<!doctype html>
+// 🔹 لوحة Admin بسيطة (قبل 404)
+app.get('/admin', (_req, res) => {
+  const html = `
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
@@ -118,13 +101,13 @@ app.get('/admin', (_req: Request, res: Response) => {
       const txt = await res.text();
       throw new Error(txt || ('HTTP '+res.status));
     }
-    try { return await res.json(); } catch { return await res.text(); }
+    return res.json ? res.json() : res.text();
   }
 
   async function checkHealth(){
     try{
-      const txt = await fetch('/health').then(r=>r.text());
-      $('health').textContent = (txt === 'ok' || txt === '{"status":"ok"}') ? 'ok' : txt;
+      const data = await call('/health');
+      $('health').textContent = (data && data.status) || 'ok';
       $('health').className = 'ok';
     }catch(e){
       $('health').textContent = e.message;
@@ -214,21 +197,24 @@ app.get('/admin', (_req: Request, res: Response) => {
   loadOrgs();
 </script>
 </body>
-</html>`;
-  return res.type('text/html').send(html);
+</html>
+  `;
+  res.type('text/html').send(html);
 });
-/* ----------------------------------------------- */
 
-/* 404 */
+// API Routers
+app.use('/api/orgs', orgsRouter);
+app.use('/api/projects', projectsRouter);
+
+// 404
 app.use((_req, res) => res.status(404).json({ error: 'Not found' }));
 
-/* Error handler */
+// Error handler
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   console.error(err);
   res.status(500).json({ error: 'Internal Server Error' });
 });
 
-/* Start server */
 const port = Number(process.env.PORT ?? 10000);
 const host = '0.0.0.0';
 app.listen(port, host, () => {
