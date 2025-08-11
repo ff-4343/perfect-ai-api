@@ -1,3 +1,4 @@
+// prisma/schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,25 +8,229 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/* ==== Core ==== */
 model Organization {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt      // 👈 جديد
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   projects  Project[]
+  services  Service[]
+  leads     Lead[]
+  apiKeys   ApiKey[]
+  assets    Asset[]
+  forms     Form[]
+  chat      ChatSession[]
+  resources Resource[]
+  events    Event[]
+
+  @@index([name])
 }
 
 model Project {
+  id          String    @id @default(cuid())
+  orgId       String
+  name        String
+  archetype   String?
+  status      String    @default("planning")  // نص لتبقى متوافقة مع الكود الحالي
+  spec        Json?
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  assets     Asset[]
+  themes     Theme[]
+  chat       ChatSession[]
+  resources  Resource[]
+  events     Event[]
+
+  @@index([orgId])
+  @@index([status])
+}
+
+/* ==== Services & Leads ==== */
+model Service {
+  id          String   @id @default(cuid())
+  // يمكن ربط الخدمة بمنظمة أو تركها عامة (null)
+  orgId       String?
+  slug        String
+  name        String
+  description String?
+  priceFrom   Int?
+  sortOrder   Int      @default(0)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  org   Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  leads Lead[]
+
+  @@unique([orgId, slug])
+  @@index([orgId, active, sortOrder])
+}
+
+model Lead {
+  id        String     @id @default(cuid())
+  orgId     String?
+  name      String
+  email     String
+  phone     String?
+  message   String
+  budget    Int?
+  status    String     @default("new") // new/contacted/won/lost
+  serviceId String?
+  source    String?
+  createdAt DateTime   @default(now())
+
+  org     Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  service Service?      @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([orgId])
+  @@index([serviceId])
+}
+
+/* ==== Assets & Themes ==== */
+model Asset {
+  id        String   @id @default(cuid())
+  orgId     String?
+  projectId String?
+  type      String   // FILE/IMAGE/ARCHIVE/other
+  url       String?
+  path      String?
+  size      Int?
+  createdAt DateTime @default(now())
+
+  org     Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  project Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([orgId])
+  @@index([projectId])
+}
+
+model Theme {
+  id        String   @id @default(cuid())
+  projectId String?
+  name      String
+  sourceUrl String?
+  data      Json?
+  createdAt DateTime @default(now())
+
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+}
+
+/* ==== API Keys & Chat ==== */
+model ApiKey {
+  id            String   @id @default(cuid())
+  orgId         String?
+  label         String?
+  provider      String   // OPENAI/ANTHROPIC/GEMINI...
+  keyCiphertext String   // AES-256-GCM (lib/crypto.ts)
+  keyIv         String
+  keyTag        String
+  lastFour      String?
+  createdAt     DateTime @default(now())
+
+  org Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+
+  @@index([provider])
+  @@index([orgId])
+}
+
+model ChatSession {
+  id        String   @id @default(cuid())
+  orgId     String?
+  projectId String?
+  title     String?
+  createdAt DateTime @default(now())
+
+  org      Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  project  Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  messages ChatMessage[]
+
+  @@index([orgId])
+  @@index([projectId])
+}
+
+model ChatMessage {
+  id        String    @id @default(cuid())
+  sessionId String
+  role      String    // user/assistant/system
+  content   String
+  createdAt DateTime  @default(now())
+
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([sessionId])
+}
+
+/* ==== Forms ==== */
+model Form {
   id        String   @id @default(cuid())
   orgId     String
   name      String
-  archetype String
-  status    String   @default("planning")
-  spec      Json
+  slug      String
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt      // 👈 جديد
 
-  org Organization @relation(fields: [orgId], references: [id])
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  submissions Submission[]
 
-  @@index([orgId])                   // 👈 فهرس للاستعلامات حسب المنظمة
+  @@unique([orgId, slug])
+  @@index([orgId])
+}
+
+model Submission {
+  id        String   @id @default(cuid())
+  formId    String
+  data      Json
+  createdAt DateTime @default(now())
+
+  form Form @relation(fields: [formId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([formId])
+}
+
+/* ==== Auto Layer: Resource/Event ==== */
+model Resource {
+  id        String   @id @default(cuid())
+  orgId     String?
+  projectId String?
+  kind      String   // example: "catalog", "product", "ticket", ...
+  key       String?
+  status    String?  // "active"/"archived"/...
+  data      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org     Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  project Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  events  Event[]
+
+  @@index([orgId])
+  @@index([projectId])
+  @@index([kind])
+  @@index([status])
+  @@unique([orgId, projectId, kind, key])
+}
+
+model Event {
+  id         String   @id @default(cuid())
+  orgId      String?
+  projectId  String?
+  resourceId String?
+  type       String   // "created"/"updated"/"deploy"/...
+  data       Json?
+  createdAt  DateTime @default(now())
+
+  org      Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  project  Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  resource Resource?      @relation(fields: [resourceId], references: [id], onDelete: SetNull)
+
+  @@index([orgId])
+  @@index([projectId])
+  @@index([resourceId])
+  @@index([type])
 }

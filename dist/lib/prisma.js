@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
-export const prisma = new PrismaClient();
+const prisma = new PrismaClient();
+export default prisma;
 process.on('SIGINT', async () => {
     try {
         await prisma.$disconnect();

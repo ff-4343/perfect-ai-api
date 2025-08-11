@@ -4,6 +4,9 @@ import rateLimit from 'express-rate-limit';
 import 'dotenv/config';
 import orgsRouter from './routes/orgs.js';
 import projectsRouter from './routes/projects.js';
+import servicesRouter from './routes/services.js';
+import contactRouter from './routes/contact.js';
+import resourcesRouter from './routes/resources.js';
 import swaggerUi from 'swagger-ui-express';
 import { openApiSpec } from './docs.js';
 const app = express();
@@ -13,7 +16,7 @@ app.set('trust proxy', 1);
 const allowed = process.env.CORS_ORIGIN?.split(',').map(s => s.trim()).filter(Boolean);
 app.use(cors({ origin: allowed && allowed.length ? allowed : true }));
 // Rate limit: 120 طلب/دقيقة لكل IP
-app.use(rateLimit({ windowMs: 60000, max: 120 }));
+app.use(rateLimit({ windowMs: 60000, max: Number(process.env.RATE_LIMIT_MAX ?? 120) }));
 app.use(express.json({ limit: '1mb' }));
 // Health
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
@@ -131,8 +134,9 @@ app.get('/admin', (_req, res) => {
     $('projList').innerHTML = '';
     if(!id) return;
     try{
-      const ps = await call('/api/projects?orgId=' + encodeURIComponent(id));
-      ps.forEach(p=>{
+      const result = await call('/api/projects?orgId=' + encodeURIComponent(id));
+      const items = Array.isArray(result) ? result : (result && result.items) || [];
+      items.forEach(p=>{
         const li = document.createElement('li');
         li.textContent = p.name + ' — ' + (p.status || 'planning');
         $('projList').appendChild(li);
@@ -194,6 +198,9 @@ app.get('/admin', (_req, res) => {
 // API Routers
 app.use('/api/orgs', orgsRouter);
 app.use('/api/projects', projectsRouter);
+app.use('/api/services', servicesRouter);
+app.use('/api/contact', contactRouter);
+app.use('/api/resources', resourcesRouter);
 // 404
 app.use((_req, res) => res.status(404).json({ error: 'Not found' }));
 // Error handler
@@ -201,7 +208,7 @@ app.use((err, _req, res, _next) => {
     console.error(err);
     res.status(500).json({ error: 'Internal Server Error' });
 });
-const port = Number(process.env.PORT ?? 10000);
+const port = Number(process.env.PORT ?? 3000);
 const host = '0.0.0.0';
 app.listen(port, host, () => {
     console.log(`✅ Server listening on http://${host}:${port}`);
