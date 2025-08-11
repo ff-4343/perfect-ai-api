@@ -86,16 +86,23 @@ TENANT_REQUIRED=false
 
 ### 3. Database Setup
 
+**Note**: Due to network restrictions in some environments, Prisma binary downloads may fail. If you encounter this issue, try these steps:
+
 ```bash
-# Generate Prisma client
+# Method 1: Generate Prisma client (if binaries are available)
 npx prisma generate
 
-# Run database migrations
+# Method 2: If generate fails, use the setup script
+npm run setup
+
+# Method 3: Manual database setup (if you have access to a PostgreSQL instance)
 npx prisma db push
 
-# (Optional) Seed with sample data
-npx prisma db seed
+# Method 4: For development without database (will use mock services)
+# The application includes comprehensive mock services for development
 ```
+
+If Prisma generation fails due to network issues, the application is designed to work with mock services for development and testing purposes.
 
 ### 4. Start the Server
 
