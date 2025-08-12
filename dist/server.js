@@ -18,7 +18,7 @@ app.use(express.json({ limit: '1mb' }));
 // Health
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 // 🔹 Swagger UI (قبل 404)
-app.use('/docs', swaggerUi.serve, swaggerUi.setup(openApiSpec));
+app.use('/docs', ...swaggerUi.serve, swaggerUi.setup(openApiSpec));
 // 🔹 لوحة Admin بسيطة (قبل 404)
 app.get('/admin', (_req, res) => {
     const html = `
