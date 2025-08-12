@@ -1,4 +1,4 @@
-import express, { NextFunction, Request, Response } from 'express';
+import express, { NextFunction, Request, Response, RequestHandler, ErrorRequestHandler } from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import 'dotenv/config';
@@ -16,12 +16,15 @@ app.set('trust proxy', 1);
 
 // CORS: لو CORS_ORIGIN موجودة نقيّد، وإلا نسمح للجميع
 const allowed = process.env.CORS_ORIGIN?.split(',').map(s => s.trim()).filter(Boolean);
-app.use(cors({ origin: allowed && allowed.length ? allowed : true }));
+const corsMiddleware: RequestHandler = cors({ origin: allowed && allowed.length ? allowed : true });
+app.use(corsMiddleware);
 
 // Rate limit: 120 طلب/دقيقة لكل IP
-app.use(rateLimit({ windowMs: 60_000, max: 120 }));
+const rateLimitMiddleware: RequestHandler = rateLimit({ windowMs: 60_000, max: 120 });
+app.use(rateLimitMiddleware);
 
-app.use(express.json({ limit: '1mb' }));
+const jsonMiddleware: RequestHandler = express.json({ limit: '1mb' });
+app.use(jsonMiddleware);
 
 // Health
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
@@ -207,13 +210,15 @@ app.use('/api/orgs', orgsRouter);
 app.use('/api/projects', projectsRouter);
 
 // 404
-app.use((_req, res) => res.status(404).json({ error: 'Not found' }));
+const notFoundHandler: RequestHandler = (_req, res) => res.status(404).json({ error: 'Not found' });
+app.use(notFoundHandler);
 
 // Error handler
-app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+const errorHandler: ErrorRequestHandler = (err: any, _req: Request, res: Response, _next: NextFunction) => {
   console.error(err);
   res.status(500).json({ error: 'Internal Server Error' });
-});
+};
+app.use(errorHandler);
 
 const port = Number(process.env.PORT ?? 10000);
 const host = '0.0.0.0';
