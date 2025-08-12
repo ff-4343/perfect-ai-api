@@ -1,17 +1,39 @@
 datasource db {
   provider = "postgresql"
-  url      = env("DB_URL")
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
 }
 
 // ===== تعريف الجداول الأساسية =====
 model Organization {
   id            String     @id @default(cuid())
   name          String
+  projects      Project[]
   products      Product[]
   carts         Cart[]
   orders        Order[]
   addresses     Address[]
   webhookEvents WebhookEvent[]
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}
+
+model Project {
+  id         String    @id @default(cuid())
+  orgId      String
+  name       String
+  archetype  String?   @default("")
+  status     String    @default("planning")
+  spec       Json?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
 }
 
 model Vendor {

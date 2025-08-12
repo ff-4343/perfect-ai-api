@@ -141,7 +141,8 @@ app.get('/admin', (_req, res) => {
     $('projList').innerHTML = '';
     if(!id) return;
     try{
-      const ps = await call('/api/projects?orgId=' + encodeURIComponent(id));
+      const data = await call('/api/projects?orgId=' + encodeURIComponent(id));
+      const ps = data.items || data; // Handle both direct array and paginated response
       ps.forEach(p=>{
         const li = document.createElement('li');
         li.textContent = p.name + ' — ' + (p.status || 'planning');
