@@ -7,7 +7,7 @@ import orgsRouter from './routes/orgs';
 import projectsRouter from './routes/projects';
 
 import swaggerUi from 'swagger-ui-express';
-import { openApiSpec } from './docs.js';
+import { openApiSpec } from './docs';
 
 const app = express();
 
