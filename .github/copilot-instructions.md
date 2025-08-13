@@ -199,3 +199,20 @@ CORS_ORIGIN=                                # Comma-separated allowed origins (e
 4. **API responses valid**: Check responses match OpenAPI spec at `/docs`
 
 Always test the complete user workflow: create organization → create project → verify data appears correctly in admin UI.
+
+## Validation Script
+
+After following these instructions, run the provided validation script to ensure everything is set up correctly:
+
+```bash
+./validate-setup.sh
+```
+
+This script checks:
+- Dependencies are installed
+- TypeScript compilation works
+- Environment is configured
+- Prisma client generation status
+- Application startup capability
+
+The script will report "VALIDATION PASSED" if you have successfully followed the instructions.
