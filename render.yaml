@@ -2,11 +2,15 @@ services:
   - type: web
     name: my-prisma-service
     env: node
-    repo: https://github.com/username/your-repo   # رابط المستودع
-    branch: main                                  # الفرع
-    buildCommand: yarn install && prisma generate && yarn build
+    repo: https://github.com/username/your-repo
+    branch: main
+    buildCommand: |
+      yarn install
+      npx prisma migrate deploy
+      npx prisma generate
+      yarn build
     startCommand: node dist/server.js
-    autoDeployTrigger: commit                     # أو checksPass / off
+    autoDeployTrigger: commit
     envVars:
       - key: DATABASE_URL
         fromService:
