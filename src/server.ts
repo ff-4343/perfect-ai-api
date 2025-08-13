@@ -5,6 +5,7 @@ import 'dotenv/config';
 
 import orgsRouter from './routes/orgs.js';
 import projectsRouter from './routes/projects.js';
+import usersRouter from './routes/users.js';
 
 import swaggerUi from 'swagger-ui-express';
 import { openApiSpec } from './docs.js';
@@ -22,6 +23,9 @@ app.use(cors({ origin: allowed && allowed.length ? allowed : true }));
 app.use(rateLimit({ windowMs: 60_000, max: 120 }));
 
 app.use(express.json({ limit: '1mb' }));
+
+// Health endpoint at root (as specified in test routes)
+app.get('/', (_req, res) => res.json({ status: 'ok', service: 'my-prisma-service' }));
 
 // Health
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
@@ -202,7 +206,8 @@ app.get('/admin', (_req, res) => {
   res.type('text/html').send(html);
 });
 
-// API Routers
+// API Routers  
+app.use('/users', usersRouter);  // Simple users API as described in test routes
 app.use('/api/orgs', orgsRouter);
 app.use('/api/projects', projectsRouter);
 
