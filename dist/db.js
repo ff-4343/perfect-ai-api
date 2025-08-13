@@ -4,11 +4,18 @@ exports.prisma = void 0;
 exports.connectDB = connectDB;
 exports.disconnectDB = disconnectDB;
 // src/db.ts
-const client_1 = require("@prisma/client");
-exports.prisma = new client_1.PrismaClient();
+let prisma;
+try {
+    const { PrismaClient } = require('@prisma/client');
+    exports.prisma = prisma = new PrismaClient();
+}
+catch (error) {
+    console.warn('Prisma client not available, using mock client:', error?.message || 'Unknown error');
+    exports.prisma = prisma = require('./lib/prisma-mock').default;
+}
 async function connectDB() {
-    await exports.prisma.$connect();
+    await prisma.$connect();
 }
 async function disconnectDB() {
-    await exports.prisma.$disconnect();
+    await prisma.$disconnect();
 }

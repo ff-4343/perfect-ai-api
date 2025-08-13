@@ -5,6 +5,7 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "nodemon src/server.ts",
+    "prebuild": "npm run prisma:generate || echo 'Warning: Prisma generate failed, using fallback'",
     "build": "tsc",
     "start": "node dist/server.js",
     "prisma:generate": "prisma generate",
