@@ -7,9 +7,27 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  name      String?
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  projects  Project[]
+
+  @@map("organizations")
+}
+
+model Project {
+  id        String   @id @default(cuid())
+  orgId     String
+  name      String
+  archetype String   @default("")
+  status    String   @default("planning")
+  spec      Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@map("projects")
 }

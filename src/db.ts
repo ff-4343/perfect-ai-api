@@ -1,7 +1,15 @@
 // src/db.ts
-import { PrismaClient } from '@prisma/client';
+let prisma;
 
-export const prisma = new PrismaClient();
+try {
+  const { PrismaClient } = require('@prisma/client');
+  prisma = new PrismaClient();
+} catch (error: any) {
+  console.warn('Prisma client not available, using mock client:', error?.message || 'Unknown error');
+  prisma = require('./lib/prisma-mock').default;
+}
+
+export { prisma };
 
 export async function connectDB() {
   await prisma.$connect();
