@@ -13,3 +13,28 @@ model User {
   name      String?
   createdAt DateTime @default(now())
 }
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  projects  Project[]
+
+  @@map("organizations")
+}
+
+model Project {
+  id         String      @id @default(cuid())
+  orgId      String
+  name       String
+  archetype  String?
+  status     String      @default("planning")
+  spec       Json?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@map("projects")
+}
