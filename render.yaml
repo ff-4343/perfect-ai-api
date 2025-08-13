@@ -2,8 +2,8 @@ services:
   - type: web
     name: my-prisma-service
     env: node
-    repo: https://github.com/username/your-repo
-    branch: main
+    repo: https://github.com/username/your-repo    # غيّر هذا إلى رابط مستودعك
+    branch: main                                   # غيّر هذا إذا كان الفرع مختلف
     buildCommand: |
       yarn install
       npx prisma migrate deploy
