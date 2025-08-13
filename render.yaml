@@ -1,19 +1,23 @@
 services:
   - type: web
     name: my-prisma-service
-    env: node
-    repo: https://github.com/username/your-repo    # غيّر هذا إلى رابط مستودعك
-    branch: main                                   # غيّر هذا إذا كان الفرع مختلف
+    runtime: node
+    # repo and branch are inferred from the location of this file. Uncomment and
+    # customise the following lines if your blueprint lives outside the target repository.
+    # repo: https://github.com/ff-4343/perfect-ai-api.git   # ⬅️ استبدلني برابط مستودعك إذا كان مختلفًا
+    # branch: main                                 # ⬅️ غيّره لو مختلف
     buildCommand: |
       yarn install
-      npx prisma migrate deploy
       npx prisma generate
+      npx prisma migrate deploy
       yarn build
     startCommand: node dist/server.js
-    autoDeployTrigger: commit
     envVars:
       - key: DATABASE_URL
-        fromService:
-          name: my-database
-          type: database
+        fromDatabase:
+          name: my-database                      # ⬅️ استبدل باسم قاعدة Render إذا كان مختلفًا
           property: connectionString
+
+databases:
+  - name: my-database
+    plan: free
