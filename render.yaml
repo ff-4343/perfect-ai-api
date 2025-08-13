@@ -1,27 +1,15 @@
 services:
   - type: web
-    name: perfect-api
+    name: my-prisma-service
     env: node
-    plan: free
-    rootDir: .
-    buildCommand: |
-      npm install
-      npm run prisma:generate
-      npm run build
-    startCommand: |
-      if [ -d prisma/migrations ] && [ "$(ls -A prisma/migrations | wc -l)" -gt 0 ]; then
-        npx prisma migrate deploy
-      else
-        npx prisma db push
-      fi
-      node dist/server.js
-    healthCheckPath: /health
-    autoDeploy: true
+    repo: https://github.com/username/your-repo   # رابط المستودع
+    branch: main                                  # الفرع
+    buildCommand: yarn install && prisma generate && yarn build
+    startCommand: node dist/server.js
+    autoDeployTrigger: commit                     # أو checksPass / off
     envVars:
       - key: DATABASE_URL
-        fromDatabase:
-          name: perfect-postgres
+        fromService:
+          name: my-database
+          type: database
           property: connectionString
-
-databases:
-  - name: perfect-postgres
