@@ -7,10 +7,10 @@ const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 require("dotenv/config");
-const orgs_js_1 = __importDefault(require("./routes/orgs.js"));
-const projects_js_1 = __importDefault(require("./routes/projects.js"));
+const orgs_1 = __importDefault(require("./routes/orgs"));
+const projects_1 = __importDefault(require("./routes/projects"));
 const swagger_ui_express_1 = __importDefault(require("swagger-ui-express"));
-const docs_js_1 = require("./docs.js");
+const docs_1 = require("./docs");
 const app = (0, express_1.default)();
 // مهم لقراءة IP الحقيقي خلف الـ proxy على Render (للـ rate limit)
 app.set('trust proxy', 1);
@@ -23,7 +23,7 @@ app.use(express_1.default.json({ limit: '1mb' }));
 // Health
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 // 🔹 Swagger UI (قبل 404)
-app.use('/docs', swagger_ui_express_1.default.serve, swagger_ui_express_1.default.setup(docs_js_1.openApiSpec));
+app.use('/docs', swagger_ui_express_1.default.serve, swagger_ui_express_1.default.setup(docs_1.openApiSpec));
 // 🔹 لوحة Admin بسيطة (قبل 404)
 app.get('/admin', (_req, res) => {
     const html = `
@@ -197,8 +197,8 @@ app.get('/admin', (_req, res) => {
     res.type('text/html').send(html);
 });
 // API Routers
-app.use('/api/orgs', orgs_js_1.default);
-app.use('/api/projects', projects_js_1.default);
+app.use('/api/orgs', orgs_1.default);
+app.use('/api/projects', projects_1.default);
 // 404
 app.use((_req, res) => res.status(404).json({ error: 'Not found' }));
 // Error handler
