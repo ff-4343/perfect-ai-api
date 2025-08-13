@@ -3,6 +3,10 @@ datasource db {
   url      = env("DB_URL")
 }
 
+generator client {
+  provider = "prisma-client-js"
+}
+
 // ===== تعريف الجداول الأساسية =====
 model Organization {
   id            String     @id @default(cuid())
