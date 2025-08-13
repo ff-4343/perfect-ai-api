@@ -3,7 +3,10 @@ import type { OpenAPIV3 } from 'openapi-types';
 
 /**
  * OpenAPI spec يغطي المسارات الموجودة فعليًا الآن:
+ *  - GET  / (health at root)
  *  - GET  /health
+ *  - GET  /users
+ *  - POST /users
  *  - GET  /api/orgs
  *  - POST /api/orgs
  *  - GET  /api/projects?orgId=...
@@ -15,17 +18,41 @@ export const openApiSpec: OpenAPIV3.Document = {
     title: 'Perfect API',
     version: '1.0.0',
     description:
-      'Minimal CRUD for Organizations & Projects + health. جاهز للتوسعة (Auth, Swagger, Rate limit).',
+      'CRUD للمستخدمين والمنظمات والمشاريع + health. جاهز للتوسعة (Auth, Swagger, Rate limit).',
   },
   servers: [
     { url: '/', description: 'Same origin (Render / local)' }
   ],
   tags: [
     { name: 'health', description: 'Service health' },
+    { name: 'users', description: 'Users management' },
     { name: 'orgs', description: 'Organizations' },
     { name: 'projects', description: 'Projects belonging to organizations' }
   ],
   paths: {
+    '/': {
+      get: {
+        tags: ['health'],
+        summary: 'Health check (root)',
+        responses: {
+          '200': {
+            description: 'OK',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: { 
+                    status: { type: 'string', example: 'ok' },
+                    service: { type: 'string', example: 'my-prisma-service' }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+
     '/health': {
       get: {
         tags: ['health'],
@@ -39,9 +66,57 @@ export const openApiSpec: OpenAPIV3.Document = {
                   type: 'object',
                   properties: { status: { type: 'string', example: 'ok' } }
                 }
-              },
-              'text/plain': {
-                schema: { type: 'string', example: 'ok' }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    '/users': {
+      get: {
+        tags: ['users'],
+        summary: 'List users',
+        responses: {
+          '200': {
+            description: 'Array of users',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'array',
+                  items: { $ref: '#/components/schemas/User' }
+                }
+              }
+            }
+          }
+        }
+      },
+      post: {
+        tags: ['users'],
+        summary: 'Create user',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/UserCreate' }
+            }
+          }
+        },
+        responses: {
+          '201': {
+            description: 'Created user',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/User' }
+              }
+            }
+          },
+          '400': { $ref: '#/components/responses/BadRequest' },
+          '409': { 
+            description: 'Email already exists',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/Error' }
               }
             }
           }
@@ -148,6 +223,26 @@ export const openApiSpec: OpenAPIV3.Document = {
 
   components: {
     schemas: {
+      User: {
+        type: 'object',
+        properties: {
+          id: { type: 'integer', example: 1 },
+          email: { type: 'string', format: 'email', example: 'user@example.com' },
+          name: { type: 'string', nullable: true, example: 'John Doe' },
+          createdAt: { type: 'string', format: 'date-time' }
+        },
+        required: ['id', 'email', 'createdAt']
+      },
+
+      UserCreate: {
+        type: 'object',
+        properties: {
+          email: { type: 'string', format: 'email', example: 'new@example.com' },
+          name: { type: 'string', nullable: true, example: 'New User' }
+        },
+        required: ['email']
+      },
+
       Organization: {
         type: 'object',
         properties: {
